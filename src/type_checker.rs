@@ -160,10 +160,12 @@ impl TypeChecker {
                 };
 
                 for Branch { patterns, body } in branches {
-                    if inputs.len() != patterns.len() {
+                    let mut inputs = inputs.clone();
+                    if inputs.len() < patterns.len() {
                         return Err(TypeCheckError::TypeMismatch);
                     }
 
+                    let leftover = inputs.split_off(patterns.len());
                     if !inputs.iter().zip(patterns)
                         .all(|(input, pattern)| self.pattern_fits(input, pattern)) {
                         return Err(TypeCheckError::TypeMismatch)
@@ -174,7 +176,7 @@ impl TypeChecker {
                         self.define_pattern_locals(input.clone(), pattern.clone());
                     }
 
-                    let mut stack = vec![];
+                    let mut stack = leftover;
                     for expr in body {
                         self.type_check_expr(expr, &mut stack)?;
                     }

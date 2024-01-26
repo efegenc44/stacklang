@@ -13,6 +13,11 @@ def add(Nat Nat) - (Nat)
 | n 0       = n
 | n Succ(m) = n m add Succ
 
+def add2(Nat Nat) - (Nat)
+|      =     add
+| n    = n   add
+| n m  = n m add
+
 def mul(Nat Nat) - (Nat)
 | n 0       = 0
 | n Succ(m) = n m mul n add
