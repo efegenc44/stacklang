@@ -51,6 +51,14 @@ impl Iterator for Tokens<'_> {
                     self.chars.next();
                     Token::ClosingParenthesis
                 }
+                '[' => {
+                    self.chars.next();
+                    Token::OpeningBracket
+                }
+                ']' => {
+                    self.chars.next();
+                    Token::ClosingBracket
+                }
                 '=' => {
                     self.chars.next();
                     Token::EqualsSign
@@ -69,7 +77,7 @@ impl Iterator for Tokens<'_> {
     }
 }
 
-const PUNCTUATION: [char; 5] = ['(', ')', '=', '-', '|'];
+const PUNCTUATION: [char; 7] = ['[', ']', '(', ')', '=', '-', '|'];
 #[derive(Debug, PartialEq, Eq)]
 pub enum Token {
     Word(String),
@@ -77,6 +85,8 @@ pub enum Token {
     KeywordDef,
     OpeningParenthesis,
     ClosingParenthesis,
+    OpeningBracket,
+    ClosingBracket,
     EqualsSign,
     Minus,
     Bar,

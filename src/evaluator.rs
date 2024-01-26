@@ -129,8 +129,7 @@ impl Evaluator {
                 }
                 TopLevel::Def {
                     name,
-                    inputs: _,
-                    outputs: _,
+                    type_expr: _,
                     branches,
                 } => {
                     self.ctx

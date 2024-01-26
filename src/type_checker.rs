@@ -20,6 +20,10 @@ impl TypeChecker {
     fn type_expr(&self, type_expr: &TypeExpr) -> Type {
         match type_expr {
             TypeExpr::Word(word) => Type::Basic(word.clone()),
+            TypeExpr::Function { inputs, outputs } => Type::Function {
+                inputs: inputs.iter().map(|ty| self.type_expr(ty)).collect(),
+                outputs: outputs.iter().map(|ty| self.type_expr(ty)).collect()
+            },
         }
     }
 
@@ -62,19 +66,9 @@ impl TypeChecker {
 
     fn collect_defs(&mut self, top_levels: &[TopLevel]) -> TypeCheckResult<()> {
         for top_level in top_levels {
-            if let TopLevel::Def { name, inputs, outputs, branches: _ } = top_level {
-                let inputs = inputs
-                    .iter()
-                    .map(|argument_type| self.type_expr(argument_type))
-                    .collect();
-
-                let outputs = outputs
-                    .iter()
-                    .map(|argument_type| self.type_expr(argument_type))
-                    .collect();
-
-                let func_type = Type::Function { inputs, outputs };
-                if self.ctx.insert(name.clone(), func_type).is_some() {
+            if let TopLevel::Def { name, type_expr, branches: _ } = top_level {
+                let ty = self.type_expr(type_expr);
+                if self.ctx.insert(name.clone(), ty).is_some() {
                     return Err(TypeCheckError::SymbolAlreadyDefined)
                 }
             }
@@ -154,9 +148,10 @@ impl TypeChecker {
 
     fn type_check_defs(&mut self, top_levels: &[TopLevel]) -> TypeCheckResult<()> {
         for top_level in top_levels {
-            if let TopLevel::Def { name, inputs: _, outputs: _, branches } = top_level {
-                let Type::Function { inputs, outputs } = self.ctx.get(name).unwrap().clone() else {
-                    unreachable!();
+            if let TopLevel::Def { name, type_expr: _, branches } = top_level {
+                let (inputs, outputs) = match self.ctx.get(name).unwrap().clone() {
+                    ty@Type::Basic(_) => (vec![], vec![ty]),
+                    Type::Function { inputs, outputs } => (inputs, outputs),
                 };
 
                 for Branch { patterns, body } in branches {

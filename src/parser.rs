@@ -41,7 +41,22 @@ impl<'tokens> Parser<'tokens> {
 
         match token {
             Token::Word(word) => Ok(TypeExpr::Word(word)),
-            _ => Err(ParseError::UnexpectedToken),
+            Token::OpeningBracket => {
+                let mut inputs = vec![];
+                while !matches!(self.tokens.peek(), Some(Token::Minus)) {
+                    inputs.push(self.type_expr()?);
+                }
+                self.expect(Token::Minus)?;
+
+                let mut outputs = vec![];
+                while !matches!(self.tokens.peek(), Some(Token::ClosingBracket)) {
+                    outputs.push(self.type_expr()?);
+                }
+                self.expect(Token::ClosingBracket)?;
+
+                Ok(TypeExpr::Function { inputs, outputs })
+            }
+            _ => Err(ParseError::UnexpectedToken)
         }
     }
 
@@ -131,26 +146,7 @@ impl<'tokens> Parser<'tokens> {
     fn def(&mut self) -> ParseResult<TopLevel> {
         self.expect(Token::KeywordDef)?;
         let name = self.expect_word()?;
-        let mut inputs = vec![];
-        self.expect(Token::OpeningParenthesis)?;
-        while !matches!(self.tokens.peek(), Some(Token::ClosingParenthesis)) {
-            inputs.push(self.type_expr()?);
-        }
-        self.expect(Token::ClosingParenthesis)?;
-
-        let outputs = if let Some(Token::Minus) = self.tokens.peek() {
-            self.tokens.next();
-            let mut outputs = vec![];
-            self.expect(Token::OpeningParenthesis)?;
-            while !matches!(self.tokens.peek(), Some(Token::ClosingParenthesis)) {
-                outputs.push(self.type_expr()?);
-            }
-            self.expect(Token::ClosingParenthesis)?;
-            outputs
-        } else {
-            vec![]
-        };
-
+        let type_expr = self.type_expr()?;
         let mut branches = vec![];
         while let Some(Token::Bar) = self.tokens.peek() {
             branches.push(self.branch()?);
@@ -158,8 +154,7 @@ impl<'tokens> Parser<'tokens> {
 
         Ok(TopLevel::Def {
             name,
-            inputs,
-            outputs,
+            type_expr,
             branches,
         })
     }
@@ -192,8 +187,7 @@ pub enum TopLevel {
     },
     Def {
         name: String,
-        inputs: Vec<TypeExpr>,
-        outputs: Vec<TypeExpr>,
+        type_expr: TypeExpr,
         branches: Vec<Branch>,
     },
 }
@@ -227,4 +221,8 @@ pub struct Constructor {
 #[derive(Debug)]
 pub enum TypeExpr {
     Word(String),
+    Function {
+        inputs: Vec<TypeExpr>,
+        outputs: Vec<TypeExpr>,
+    }
 }

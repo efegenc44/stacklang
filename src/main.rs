@@ -9,26 +9,26 @@ data Nat
 | 0
 | Succ(Nat)
 
-def add(Nat Nat) - (Nat)
+def add [Nat Nat - Nat]
 | n 0       = n
 | n Succ(m) = n m add Succ
 
-def add2(Nat Nat) - (Nat)
+def add2 [Nat Nat - Nat]
 |      =     add
 | n    = n   add
 | n m  = n m add
 
-def mul(Nat Nat) - (Nat)
+def mul [Nat Nat - Nat]
 | n 0       = 0
 | n Succ(m) = n m mul n add
 
-# def swap(a b) - (b a)
+# def swap [a b - b a]
 # | x y = y x
 
-def main() - (Nat)
+def main Nat
 | = 0 Succ Succ Succ 0 Succ Succ mul
 
-# def main() - (Nat Nat)
+# def main [- Nat Nat]
 # | = 0 0 Succ swap
 ";
 
