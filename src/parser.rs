@@ -68,6 +68,10 @@ impl<'tokens> Parser<'tokens> {
 
         match token {
             Token::Word(name) => {
+                if name.chars().next().unwrap().is_lowercase() {
+                    return Err(ParseError::MinusculeConstructor)
+                }
+
                 let mut argument_types = vec![];
                 if let Some(Token::OpeningParenthesis) = self.tokens.peek() {
                     self.tokens.next();
@@ -177,6 +181,7 @@ type ParseResult<T> = Result<T, ParseError>;
 pub enum ParseError {
     UnexpectedToken,
     UnexpectedEOF,
+    MinusculeConstructor
 }
 
 #[derive(Debug)]
