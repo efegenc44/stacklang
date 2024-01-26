@@ -51,10 +51,12 @@ impl Evaluator {
             (_, Pattern::All(_)) => true,
             (Value::Function(_), Pattern::Constructor { .. }) => false,
             (Value::Constructor(_), Pattern::Constructor { .. }) => false,
+            (Value::Quotation { .. }, Pattern::Constructor { .. }) => false,
         }
     }
 
     fn define_pattern_locals(&mut self, value: Value, pattern: Pattern) {
+        // Maybe quotation patterns
         match (value, pattern) {
             (value, Pattern::All(name)) => self.locals.push((name, value)),
             (
@@ -70,15 +72,13 @@ impl Evaluator {
             }
             (Value::Function(_), Pattern::Constructor { .. }) => (),
             (Value::Constructor(_), Pattern::Constructor { .. }) => (),
+            (Value::Quotation { .. }, Pattern::Constructor { .. }) => (),
         }
     }
 
     fn eval_expr(&mut self, expr: &Expr) {
         match expr {
             Expr::Word(word) => match self.resolve_word(word) {
-                value @ Value::Basic { .. } => {
-                    self.stack.push(value);
-                }
                 Value::Constructor(arity) => {
                     let values = self.stack.split_off(self.stack.len() - arity);
                     self.stack.push(Value::Basic {
@@ -92,7 +92,7 @@ impl Evaluator {
                             .iter()
                             .zip(&patterns)
                             .all(|(value, pattern)| self.fits_pattern(value, pattern))
-                        {
+                            {
                             let locals_len = self.locals.len();
                             let values = self.stack.split_off(self.stack.len() - patterns.len());
                             for (value, pattern) in values.into_iter().zip(patterns) {
@@ -107,6 +107,28 @@ impl Evaluator {
                     }
                     panic!("Non exhaustive patterns")
                 }
+                literal => {
+                    self.stack.push(literal);
+                }
+            },
+            Expr::Quotation { inputs: _, quotation } => {
+                let closure = self.locals.clone();
+                self.stack.push(Value::Quotation {
+                    quotation: quotation.clone(),
+                    closure,
+                })
+            },
+            Expr::Unquote => {
+                let Some(Value::Quotation { quotation, closure }) = self.stack.pop() else {
+                    unreachable!()
+                };
+
+                let locals_len = self.locals.len();
+                self.locals.extend(closure);
+                for expr in quotation {
+                    self.eval_expr(&expr);
+                }
+                self.locals.truncate(locals_len);
             },
         }
     }
@@ -168,6 +190,10 @@ pub enum Value {
     },
     Function(Vec<Branch>),
     Constructor(usize),
+    Quotation {
+        quotation: Vec<Expr>,
+        closure: Vec<(String, Value)>
+    }
 }
 
 impl std::fmt::Debug for Value {
@@ -185,6 +211,7 @@ impl std::fmt::Debug for Value {
             },
             Value::Function(_) => todo!(),
             Value::Constructor(_) => todo!(),
+            Value::Quotation { quotation, .. } => write!(f, "{quotation:?}"),
         }
     }
 }

@@ -25,8 +25,17 @@ def mul [Nat Nat - Nat]
 # def swap [a b - b a]
 # | x y = y x
 
+def capture [Nat - [ - Nat]]
+| n = [- n]
+
 def main Nat
-| = 0 Succ Succ Succ 0 Succ Succ mul
+| = 0 capture &
+
+# def main Nat
+# | = [- 0] [[- Nat] - &] &
+
+# def main Nat
+# | = 0 Succ Succ Succ 0 Succ Succ mul
 
 # def main [- Nat Nat]
 # | = 0 0 Succ swap

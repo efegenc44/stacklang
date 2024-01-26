@@ -27,10 +27,13 @@ impl TypeChecker {
         }
     }
 
-    fn resolve_word(&self, word: &str) -> Option<Type> {
+    fn resolve_word(&self, word: &str) -> TypeCheckResult<Type> {
         match self.locals.iter().rev().find(|(name, _)| name == word) {
-            Some((_, ty)) => Some(ty.clone()),
-            None => self.ctx.get(word).cloned(),
+            Some((_, ty)) => Ok(ty.clone()),
+            None => match self.ctx.get(word) {
+                Some(ty) => Ok(ty.clone()),
+                None => Err(TypeCheckError::UnboundSymbol),
+            }
         }
     }
 
@@ -125,13 +128,8 @@ impl TypeChecker {
     fn type_check_expr(&self, expr: &Expr, stack: &mut Vec<Type>) -> TypeCheckResult<()> {
         match expr {
             Expr::Word(word) => {
-                let Some(ty) = self.resolve_word(word) else {
-                    dbg!(word);
-                    return Err(TypeCheckError::UnboundSymbol);
-                };
-
-                match ty {
-                    Type::Basic(_) => stack.push(ty),
+                match self.resolve_word(word)? {
+                    ty@Type::Basic(_) => stack.push(ty),
                     Type::Function { inputs, outputs } => {
                         if stack[stack.len() - inputs.len()..] != inputs {
                             return Err(TypeCheckError::TypeMismatch);
@@ -141,6 +139,27 @@ impl TypeChecker {
                         stack.extend(outputs);
                     },
                 }
+            },
+            Expr::Quotation { inputs, quotation } => {
+                let inputs: Vec<_> = inputs.iter().map(|ty| self.type_expr(ty)).collect();
+                let mut outputs = inputs.clone();
+                for expr in quotation {
+                    self.type_check_expr(expr, &mut outputs)?;
+                }
+
+                stack.push(Type::Function { inputs, outputs })
+            },
+            Expr::Unquote => {
+                let Some(Type::Function { inputs, outputs }) = stack.pop() else {
+                    return Err(TypeCheckError::TypeMismatch)
+                };
+
+                if stack[stack.len() - inputs.len()..] != inputs {
+                    return Err(TypeCheckError::TypeMismatch);
+                }
+
+                stack.truncate(stack.len() - inputs.len());
+                stack.extend(outputs);
             },
         }
         Ok(())
@@ -200,7 +219,7 @@ pub enum TypeCheckError {
     TypeAlreadyDefined,
     SymbolAlreadyDefined,
     TypeMismatch,
-    UnboundSymbol
+    UnboundSymbol,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

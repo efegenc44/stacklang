@@ -129,7 +129,27 @@ impl<'tokens> Parser<'tokens> {
 
         match token {
             Token::Word(word) => Ok(Expr::Word(word)),
-            _ => Err(ParseError::UnexpectedToken),
+            Token::OpeningBracket => {
+                let mut inputs = vec![];
+                while !matches!(self.tokens.peek(), Some(Token::Minus)) {
+                    inputs.push(self.type_expr()?);
+                }
+                self.expect(Token::Minus)?;
+
+
+                let mut quotation = vec![];
+                while !matches!(self.tokens.peek(), Some(Token::ClosingBracket)) {
+                    quotation.push(self.expr()?);
+                }
+                self.expect(Token::ClosingBracket)?;
+
+                Ok(Expr::Quotation {
+                    inputs,
+                    quotation,
+                })
+            },
+            Token::Ampersand => Ok(Expr::Unquote),
+            _ => Err(ParseError::UnexpectedToken)
         }
     }
 
@@ -141,7 +161,7 @@ impl<'tokens> Parser<'tokens> {
         }
         self.expect(Token::EqualsSign)?;
         let mut body = vec![];
-        while let Some(Token::Word(_)) = self.tokens.peek() {
+        while let Some(Token::Word(_) | Token::OpeningBracket | Token::Ampersand) = self.tokens.peek() {
             body.push(self.expr()?);
         }
         Ok(Branch { patterns, body })
@@ -206,6 +226,11 @@ pub struct Branch {
 #[derive(Clone, Debug)]
 pub enum Expr {
     Word(String),
+    Quotation{
+        inputs: Vec<TypeExpr>,
+        quotation: Vec<Expr>
+    },
+    Unquote,
 }
 
 #[derive(Clone, Debug)]
@@ -223,7 +248,7 @@ pub struct Constructor {
     pub argument_types: Vec<TypeExpr>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum TypeExpr {
     Word(String),
     Function {
