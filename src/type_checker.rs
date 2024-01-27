@@ -20,7 +20,7 @@ impl TypeChecker {
     fn type_expr(&self, type_expr: &TypeExpr) -> Type {
         match type_expr {
             TypeExpr::Word(word) => Type::Basic(word.clone()),
-            TypeExpr::Function { inputs, outputs } => Type::Function {
+            TypeExpr::Quotation { inputs, outputs } => Type::Quotation {
                 inputs: inputs.iter().map(|ty| self.type_expr(ty)).collect(),
                 outputs: outputs.iter().map(|ty| self.type_expr(ty)).collect()
             },
@@ -69,8 +69,11 @@ impl TypeChecker {
 
     fn collect_defs(&mut self, top_levels: &[TopLevel]) -> TypeCheckResult<()> {
         for top_level in top_levels {
-            if let TopLevel::Def { name, type_expr, branches: _ } = top_level {
-                let ty = self.type_expr(type_expr);
+            if let TopLevel::Def { name, inputs, outputs, branches: _ } = top_level {
+                let ty = Type::Function {
+                    inputs: inputs.iter().map(|ty| self.type_expr(ty)).collect(),
+                    outputs: outputs.iter().map(|ty| self.type_expr(ty)).collect()
+                };
                 if self.ctx.insert(name.clone(), ty).is_some() {
                     return Err(TypeCheckError::SymbolAlreadyDefined)
                 }
@@ -130,7 +133,12 @@ impl TypeChecker {
             Expr::Word(word) => {
                 match self.resolve_word(word)? {
                     ty@Type::Basic(_) => stack.push(ty),
+                    ty@Type::Quotation { .. } => stack.push(ty),
                     Type::Function { inputs, outputs } => {
+                        if inputs.len() > stack.len() {
+                            return Err(TypeCheckError::TypeMismatch);
+                        }
+
                         if stack[stack.len() - inputs.len()..] != inputs {
                             return Err(TypeCheckError::TypeMismatch);
                         }
@@ -147,10 +155,10 @@ impl TypeChecker {
                     self.type_check_expr(expr, &mut outputs)?;
                 }
 
-                stack.push(Type::Function { inputs, outputs })
+                stack.push(Type::Quotation { inputs, outputs })
             },
             Expr::Unquote => {
-                let Some(Type::Function { inputs, outputs }) = stack.pop() else {
+                let Some(Type::Quotation { inputs, outputs }) = stack.pop() else {
                     return Err(TypeCheckError::TypeMismatch)
                 };
 
@@ -167,9 +175,10 @@ impl TypeChecker {
 
     fn type_check_defs(&mut self, top_levels: &[TopLevel]) -> TypeCheckResult<()> {
         for top_level in top_levels {
-            if let TopLevel::Def { name, type_expr: _, branches } = top_level {
+            if let TopLevel::Def { name, inputs: _, outputs: _, branches } = top_level {
                 let (inputs, outputs) = match self.ctx.get(name).unwrap().clone() {
                     ty@Type::Basic(_) => (vec![], vec![ty]),
+                    ty@Type::Quotation { .. } => (vec![], vec![ty]),
                     Type::Function { inputs, outputs } => (inputs, outputs),
                 };
 
@@ -229,4 +238,9 @@ pub enum Type {
         inputs: Vec<Type>,
         outputs: Vec<Type>,
     },
+    Quotation {
+        inputs: Vec<Type>,
+        outputs: Vec<Type>,
+    },
 }
+

@@ -54,7 +54,7 @@ impl<'tokens> Parser<'tokens> {
                 }
                 self.expect(Token::ClosingBracket)?;
 
-                Ok(TypeExpr::Function { inputs, outputs })
+                Ok(TypeExpr::Quotation { inputs, outputs })
             }
             _ => Err(ParseError::UnexpectedToken)
         }
@@ -170,7 +170,20 @@ impl<'tokens> Parser<'tokens> {
     fn def(&mut self) -> ParseResult<TopLevel> {
         self.expect(Token::KeywordDef)?;
         let name = self.expect_word()?;
-        let type_expr = self.type_expr()?;
+
+        self.expect(Token::OpeningParenthesis)?;
+        let mut inputs = vec![];
+        while !matches!(self.tokens.peek(), Some(Token::Minus)) {
+            inputs.push(self.type_expr()?);
+        }
+        self.expect(Token::Minus)?;
+
+        let mut outputs = vec![];
+        while !matches!(self.tokens.peek(), Some(Token::ClosingParenthesis)) {
+            outputs.push(self.type_expr()?);
+        }
+        self.expect(Token::ClosingParenthesis)?;
+
         let mut branches = vec![];
         while let Some(Token::Bar) = self.tokens.peek() {
             branches.push(self.branch()?);
@@ -178,7 +191,8 @@ impl<'tokens> Parser<'tokens> {
 
         Ok(TopLevel::Def {
             name,
-            type_expr,
+            inputs,
+            outputs,
             branches,
         })
     }
@@ -212,7 +226,8 @@ pub enum TopLevel {
     },
     Def {
         name: String,
-        type_expr: TypeExpr,
+        inputs: Vec<TypeExpr>,
+        outputs: Vec<TypeExpr>,
         branches: Vec<Branch>,
     },
 }
@@ -251,7 +266,7 @@ pub struct Constructor {
 #[derive(Clone, Debug)]
 pub enum TypeExpr {
     Word(String),
-    Function {
+    Quotation {
         inputs: Vec<TypeExpr>,
         outputs: Vec<TypeExpr>,
     }

@@ -151,7 +151,8 @@ impl Evaluator {
                 }
                 TopLevel::Def {
                     name,
-                    type_expr: _,
+                    inputs: _,
+                    outputs: _,
                     branches,
                 } => {
                     self.ctx
@@ -175,10 +176,7 @@ impl Evaluator {
         for expr in body {
             self.eval_expr(expr);
         }
-
-        for value in &self.stack {
-            println!("{value:?}")
-        }
+        println!("{:?}", self.stack);
     }
 }
 
@@ -211,7 +209,7 @@ impl std::fmt::Debug for Value {
             },
             Value::Function(_) => todo!(),
             Value::Constructor(_) => todo!(),
-            Value::Quotation { quotation, .. } => write!(f, "{quotation:?}"),
+            Value::Quotation { quotation, .. } => write!(f, "Quot:{quotation:?}"),
         }
     }
 }
